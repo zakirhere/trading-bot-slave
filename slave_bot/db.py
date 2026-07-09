@@ -320,6 +320,14 @@ def get(conn: sqlite3.Connection, request_id: int) -> TradeRequest:
     return _row_to_request(row)
 
 
+def get_by_instruction_id(conn: sqlite3.Connection, instruction_id: str) -> TradeRequest | None:
+    row = conn.execute(
+        "SELECT * FROM trade_requests WHERE json_extract(payload, '$.instruction_id') = ?",
+        (instruction_id,),
+    ).fetchone()
+    return _row_to_request(row) if row is not None else None
+
+
 def list_requests(conn: sqlite3.Connection, *, limit: int = 100) -> list[TradeRequest]:
     rows = conn.execute(
         """

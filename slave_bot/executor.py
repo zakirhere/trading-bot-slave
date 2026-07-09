@@ -357,3 +357,35 @@ def reconcile_submitted_orders(conn: sqlite3.Connection) -> list[db.TradeRequest
     finally:
         b.close()
     return changed
+
+
+def current_open_option_symbols() -> set[str]:
+    """Query this account's own broker for currently open option legs.
+
+    Master calls this (via the /positions HTTP endpoint) on demand instead
+    of holding its own derived position ledger — Master must never query a
+    Slave's broker directly, so Slave answers on Master's behalf using its
+    own credentials. Deliberately live, not cached here; the caller (Master)
+    is responsible for any caching to avoid hammering this account's broker
+    connection on every scheduling tick.
+    """
+    cfg = config.load_alpaca_config()
+    b = broker.create_trading_broker(cfg)
+    try:
+        position_symbols = {
+            str(position.get("symbol"))
+            for position in b.get_positions()
+            if position.get("asset_class") == "us_option"
+            and abs(float(position.get("qty") or 0)) > 0
+            and position.get("symbol")
+        }
+        order_symbols = {
+            str(leg.get("symbol"))
+            for order in b.list_orders(status="open", limit=500, nested=True)
+            for leg in (order.get("legs") or [])
+            if leg.get("symbol")
+        }
+        return position_symbols | order_symbols
+    finally:
+        b.close()
+

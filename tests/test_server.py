@@ -141,3 +141,101 @@ def test_instruction_endpoint_rejects_unsupported_kind(running_server):
     status, body = _post(url, "/instructions", payload)
     assert status == 400
     assert "unsupported instruction kind" in body["error"]
+
+
+def test_positions_endpoint_returns_open_option_symbols(running_server, monkeypatch):
+    url, _conn = running_server
+    monkeypatch.setattr(
+        executor,
+        "current_open_option_symbols",
+        lambda: {"SPY260630P00754000", "SPY260630P00753000"},
+    )
+
+    with urlopen(url + "/positions") as resp:
+        body = json.loads(resp.read())
+
+    assert resp.status == 200
+    assert body["open_option_symbols"] == ["SPY260630P00753000", "SPY260630P00754000"]
+
+
+def test_positions_endpoint_returns_502_on_broker_failure(running_server, monkeypatch):
+    url, _conn = running_server
+
+    def _raise():
+        raise RuntimeError("Alpaca API error 500")
+
+    monkeypatch.setattr(executor, "current_open_option_symbols", _raise)
+
+    try:
+        urlopen(url + "/positions")
+        raise AssertionError("expected HTTPError")
+    except Exception as exc:
+        assert exc.code == 502
+        body = json.loads(exc.read())
+        assert "broker query failed" in body["error"]
+
+
+def test_instruction_status_endpoint_returns_current_status(running_server, monkeypatch):
+    url, conn = running_server
+
+    class FakeBroker:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def get_account(self):
+            return {"trading_blocked": False, "account_blocked": False}
+
+        def get_clock(self):
+            return {"is_open": True}
+
+        def get_positions(self):
+            return []
+
+        def format_mleg_limit_price(self, *, order_type, limit_credit=None, limit_debit=None, limit_price=None):
+            return -abs(float(limit_credit))
+
+        def submit_mleg_limit_order(self, *, qty, limit_price, legs, client_order_id, time_in_force="day"):
+            return executor.broker.OrderResult(
+                broker_order_id="broker-status-1",
+                status="pending_new",
+                symbol="SPY",
+                side="sell",
+                qty=qty,
+                raw={},
+            )
+
+        def get_order(self, order_id):
+            return {"id": order_id, "status": "filled", "filled_qty": "1", "filled_avg_price": "-0.58", "filled_at": "2026-06-08T16:01:00Z"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(executor.config, "load_alpaca_config", lambda: SimpleNamespace(is_live=False))
+    monkeypatch.setattr(executor.broker, "create_trading_broker", lambda cfg: FakeBroker(cfg))
+
+    payload = {
+        "instruction_id": "instr-status-1",
+        "kind": "option_spread_open",
+        "symbol": "SPY",
+        "qty": 1,
+        "side": "sell",
+        "limit_credit": 0.58,
+        "payload": {"legs": [{"symbol": "SPY260630P00754000", "side": "sell"}, {"symbol": "SPY260630P00753000", "side": "buy"}]},
+    }
+    _post(url, "/instructions", payload)
+
+    with urlopen(url + "/instructions/instr-status-1") as resp:
+        body = json.loads(resp.read())
+
+    assert resp.status == 200
+    assert body["status"] == db.STATUS_FILLED
+    assert body["filled_avg_price"] == -0.58
+
+
+def test_instruction_status_endpoint_404_for_unknown_id(running_server):
+    url, _conn = running_server
+    try:
+        urlopen(url + "/instructions/does-not-exist")
+        raise AssertionError("expected HTTPError")
+    except Exception as exc:
+        assert exc.code == 404

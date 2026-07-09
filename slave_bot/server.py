@@ -28,7 +28,52 @@ class Handler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if self.path == "/positions":
+            try:
+                symbols = sorted(executor.current_open_option_symbols())
+            except Exception as exc:
+                log.exception("failed to query broker for /positions")
+                self._reply_json(502, {"error": f"broker query failed: {exc}"})
+                return
+            self._reply_json(200, {"open_option_symbols": symbols})
+            return
+        if self.path.startswith("/instructions/"):
+            self._handle_instruction_status(self.path[len("/instructions/") :])
+            return
         self._reply_json(404, {"error": "not found"})
+
+    def _handle_instruction_status(self, instruction_id: str) -> None:
+        if not instruction_id:
+            self._reply_json(400, {"error": "missing instruction_id"})
+            return
+        conn = db.connect()
+        db.init(conn)
+        try:
+            req = db.get_by_instruction_id(conn, instruction_id)
+            if req is None:
+                self._reply_json(404, {"error": "unknown instruction_id"})
+                return
+            if req.status == db.STATUS_SUBMITTED:
+                try:
+                    executor.reconcile_submitted_orders(conn)
+                except Exception:
+                    log.exception("reconcile during status lookup failed")
+                req = db.get(conn, req.id)
+        finally:
+            conn.close()
+
+        self._reply_json(
+            200,
+            {
+                "request_id": req.id,
+                "status": req.status,
+                "reason": req.reason,
+                "broker_order_id": req.broker_order_id,
+                "filled_qty": req.filled_qty,
+                "filled_avg_price": req.filled_avg_price,
+                "filled_at": req.filled_at,
+            },
+        )
 
     def do_POST(self):
         if self.path == "/instructions":

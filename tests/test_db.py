@@ -98,6 +98,34 @@ def test_create_option_spread_open(tmp_path):
         conn.close()
 
 
+def test_get_by_instruction_id_finds_matching_request(tmp_path):
+    conn = _conn(tmp_path)
+    try:
+        req = db.create_option_spread_open(
+            conn,
+            symbol="SPY",
+            qty=1,
+            side="sell",
+            limit_credit=0.60,
+            payload={"legs": [], "instruction_id": "instr-lookup-1"},
+        )
+
+        found = db.get_by_instruction_id(conn, "instr-lookup-1")
+
+        assert found is not None
+        assert found.id == req.id
+    finally:
+        conn.close()
+
+
+def test_get_by_instruction_id_returns_none_when_missing(tmp_path):
+    conn = _conn(tmp_path)
+    try:
+        assert db.get_by_instruction_id(conn, "does-not-exist") is None
+    finally:
+        conn.close()
+
+
 def test_due_requests_only_returns_due_queued(tmp_path):
     conn = _conn(tmp_path)
     now = datetime(2026, 6, 5, 12, 0, tzinfo=timezone.utc)
