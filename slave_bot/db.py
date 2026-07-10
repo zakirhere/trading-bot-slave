@@ -175,6 +175,7 @@ def create_stock_market_buy(
     qty: float,
     run_at: str | None = None,
     dry_run: bool = False,
+    payload: dict[str, Any] | None = None,
 ) -> TradeRequest:
     now = utc_now()
     cur = conn.execute(
@@ -193,7 +194,7 @@ def create_stock_market_buy(
             run_at,
             STATUS_QUEUED,
             int(dry_run),
-            "{}",
+            json.dumps(payload or {}, sort_keys=True),
             now,
             now,
         ),
@@ -209,6 +210,7 @@ def create_stock_market_sell(
     qty: float,
     run_at: str | None = None,
     dry_run: bool = False,
+    payload: dict[str, Any] | None = None,
 ) -> TradeRequest:
     now = utc_now()
     cur = conn.execute(
@@ -227,7 +229,7 @@ def create_stock_market_sell(
             run_at,
             STATUS_QUEUED,
             int(dry_run),
-            "{}",
+            json.dumps(payload or {}, sort_keys=True),
             now,
             now,
         ),

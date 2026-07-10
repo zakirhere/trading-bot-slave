@@ -120,7 +120,7 @@ def ingest_instruction(
 
     if kind in {"stock_market_buy", "stock_market_sell"}:
         creator = db.create_stock_market_buy if kind == "stock_market_buy" else db.create_stock_market_sell
-        return creator(conn, symbol=instruction["symbol"], qty=instruction["qty"])
+        return creator(conn, symbol=instruction["symbol"], qty=instruction["qty"], payload=payload)
     if kind == "option_spread_open":
         return db.create_option_spread_open(
             conn,
@@ -243,7 +243,7 @@ def execute_request(
                     reason=rc.reason,
                 )
 
-        client_order_id = f"queue_{req.id}_{req.kind}_{req.symbol}"
+        client_order_id = str(req.payload.get("instruction_id") or f"queue_{req.id}_{req.kind}_{req.symbol}")
 
         if req.kind in {"stock_market_buy", "stock_market_sell"}:
             try:
@@ -359,6 +359,47 @@ def reconcile_submitted_orders(conn: sqlite3.Connection) -> list[db.TradeRequest
     return changed
 
 
+def broker_status_by_client_order_id(client_order_id: str) -> dict[str, Any] | None:
+    """Return broker status for a client_order_id not present in Slave's DB.
+
+    This supports migration from the pre-split bot: Master may still have
+    submitted requests whose client_order_id was generated locally before
+    Slave existed. Broker lookup still belongs here on Slave, not in Master.
+    """
+    cfg = config.load_alpaca_config()
+    b = broker.create_trading_broker(cfg)
+    try:
+        try:
+            order = b.get_order_by_client_order_id(client_order_id)
+        except Exception as exc:
+            response = getattr(exc, "response", None)
+            if getattr(response, "status_code", None) == 404:
+                return None
+            raise
+
+        broker_status = str(order.get("status") or "")
+        if broker_status == "filled":
+            status = db.STATUS_FILLED
+            reason = "filled"
+        elif broker_status in _BROKER_ERROR_STATUSES:
+            status = db.STATUS_ERROR
+            reason = broker_status
+        else:
+            status = db.STATUS_SUBMITTED
+            reason = broker_status or None
+        return {
+            "request_id": None,
+            "status": status,
+            "reason": reason,
+            "broker_order_id": order.get("id"),
+            "filled_qty": _float_or_none(order.get("filled_qty")),
+            "filled_avg_price": _float_or_none(order.get("filled_avg_price")),
+            "filled_at": order.get("filled_at"),
+        }
+    finally:
+        b.close()
+
+
 def current_open_option_symbols() -> set[str]:
     """Query this account's own broker for currently open option legs.
 
@@ -388,4 +429,3 @@ def current_open_option_symbols() -> set[str]:
         return position_symbols | order_symbols
     finally:
         b.close()
-

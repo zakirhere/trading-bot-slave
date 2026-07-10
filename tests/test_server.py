@@ -128,6 +128,48 @@ def test_instruction_endpoint_rejects_replayed_instruction_id(running_server, mo
     assert body["duplicate"] is True
 
 
+def test_instruction_status_endpoint_finds_blocked_stock_instruction(running_server, monkeypatch):
+    url, _conn = running_server
+
+    class FakeBroker:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def get_account(self):
+            return {"trading_blocked": False, "account_blocked": False}
+
+        def get_clock(self):
+            return {"is_open": False}
+
+        def get_positions(self):
+            return []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(executor.config, "load_alpaca_config", lambda: SimpleNamespace(is_live=False))
+    monkeypatch.setattr(executor.broker, "create_trading_broker", lambda cfg: FakeBroker(cfg))
+
+    payload = {
+        "instruction_id": "instr-stock-blocked",
+        "kind": "stock_market_buy",
+        "symbol": "MSFT",
+        "qty": 0.001,
+        "side": "buy",
+        "payload": {"instruction_id": "instr-stock-blocked"},
+    }
+    status, body = _post(url, "/instructions", payload)
+    assert status == 200
+    assert body["status"] == db.STATUS_BLOCKED
+
+    with urlopen(url + "/instructions/instr-stock-blocked") as resp:
+        status_body = json.loads(resp.read())
+
+    assert resp.status == 200
+    assert status_body["status"] == db.STATUS_BLOCKED
+    assert status_body["reason"] == "market is closed"
+
+
 def test_instruction_endpoint_rejects_missing_instruction_id(running_server):
     url, _conn = running_server
     status, body = _post(url, "/instructions", {"kind": "option_spread_open"})
@@ -230,6 +272,34 @@ def test_instruction_status_endpoint_returns_current_status(running_server, monk
     assert resp.status == 200
     assert body["status"] == db.STATUS_FILLED
     assert body["filled_avg_price"] == -0.58
+
+
+def test_instruction_status_endpoint_falls_back_to_broker_client_order_id(running_server, monkeypatch):
+    url, _conn = running_server
+
+    monkeypatch.setattr(
+        executor,
+        "broker_status_by_client_order_id",
+        lambda client_order_id: {
+            "request_id": None,
+            "status": db.STATUS_FILLED,
+            "reason": "filled",
+            "broker_order_id": "broker-legacy-1",
+            "filled_qty": 1.0,
+            "filled_avg_price": -0.3,
+            "filled_at": "2026-07-10T16:00:00Z",
+        }
+        if client_order_id == "queue_251_option_spread_close_SPY"
+        else None,
+    )
+
+    with urlopen(url + "/instructions/queue_251_option_spread_close_SPY") as resp:
+        body = json.loads(resp.read())
+
+    assert resp.status == 200
+    assert body["request_id"] is None
+    assert body["status"] == db.STATUS_FILLED
+    assert body["broker_order_id"] == "broker-legacy-1"
 
 
 def test_instruction_status_endpoint_404_for_unknown_id(running_server):

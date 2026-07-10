@@ -51,7 +51,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             req = db.get_by_instruction_id(conn, instruction_id)
             if req is None:
-                self._reply_json(404, {"error": "unknown instruction_id"})
+                try:
+                    legacy_status = executor.broker_status_by_client_order_id(instruction_id)
+                except Exception as exc:
+                    log.exception("broker status fallback failed")
+                    self._reply_json(502, {"error": f"broker query failed: {exc}"})
+                    return
+                if legacy_status is None:
+                    self._reply_json(404, {"error": "unknown instruction_id"})
+                    return
+                self._reply_json(200, legacy_status)
                 return
             if req.status == db.STATUS_SUBMITTED:
                 try:
@@ -155,4 +164,3 @@ def start_in_thread(host: str = config.SERVICE_HOST, port: int = config.SERVICE_
     thread.start()
     log.info("slave HTTP server listening on http://%s:%d", host, port)
     return server
-
