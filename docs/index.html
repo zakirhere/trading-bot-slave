@@ -6,31 +6,31 @@
 <title>Tradebot Client Onboarding</title>
 <style>
   :root {
-    --bg: #f4f7fb;
-    --panel: #ffffff;
-    --panel-soft: #f9fbfe;
-    --border: #d8e0ea;
-    --text: #1f2937;
-    --muted: #5f6b7a;
-    --accent: #2563eb;
-    --accent-2: #0f766e;
-    --good: #16a34a;
-    --warn: #b45309;
-    --shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
+    --bg: #070b14;
+    --panel: #0d1524;
+    --panel-soft: #111a2c;
+    --border: #243247;
+    --text: #e5eefb;
+    --muted: #93a4bb;
+    --accent: #4f7cff;
+    --accent-2: #2dd4bf;
+    --good: #22c55e;
+    --warn: #f59e0b;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; }
   body {
-    background: linear-gradient(180deg, #edf3ff 0%, var(--bg) 22%, #eef6f3 100%);
+    background: radial-gradient(circle at top, rgba(79, 124, 255, 0.14), transparent 32%), linear-gradient(180deg, #060914 0%, var(--bg) 100%);
     color: var(--text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     padding: 28px 18px 48px;
   }
   .wrap { max-width: 1060px; margin: 0 auto; }
   .hero {
-    background: rgba(255,255,255,0.75);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(216,224,234,0.8);
+    background: rgba(13, 21, 36, 0.82);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(36, 50, 71, 0.9);
     border-radius: 18px;
     padding: 24px;
     box-shadow: var(--shadow);
@@ -87,7 +87,7 @@
     padding: 11px 12px;
     font: inherit;
     color: var(--text);
-    background: #fff;
+    background: #0a1020;
   }
   textarea { min-height: 92px; resize: vertical; }
   .full { grid-column: 1 / -1; }
@@ -114,7 +114,7 @@
     justify-content: center;
   }
   .btn.secondary, button.secondary {
-    background: #fff;
+    background: #0a1020;
     color: var(--text);
     border-color: var(--border);
   }
@@ -122,9 +122,9 @@
     background: var(--good);
   }
   .btn.warn {
-    background: #fff7ed;
-    color: var(--warn);
-    border-color: #fed7aa;
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.28);
   }
   .stack {
     display: grid;
@@ -143,11 +143,11 @@
     font-size: 12.5px;
     word-break: break-all;
     white-space: pre-wrap;
-    background: #0f172a;
-    color: #e2e8f0;
+    background: #050914;
+    color: #dbeafe;
     border-radius: 12px;
     padding: 12px;
-    border: 1px solid #1e293b;
+    border: 1px solid #1e2a3f;
   }
   .status {
     font-size: 13px;
@@ -162,8 +162,8 @@
     font-size: 12px;
     font-weight: 700;
     margin-right: 8px;
-    background: #e8eefc;
-    color: var(--accent);
+    background: rgba(79, 124, 255, 0.16);
+    color: #b9cbff;
   }
   .muted { color: var(--muted); }
   .small { font-size: 12px; }
@@ -199,10 +199,6 @@
           <input id="client_name" name="client_name" placeholder="Zakir" autocomplete="name">
         </div>
         <div>
-          <label for="account_id">Account id</label>
-          <input id="account_id" name="account_id" placeholder="S2-INDIVIDUAL">
-        </div>
-        <div>
           <label for="account_type">Broker account type</label>
           <select id="account_type" name="account_type">
             <option value="INDIVIDUAL">INDIVIDUAL</option>
@@ -215,6 +211,10 @@
         <div>
           <label for="service_port">Service port</label>
           <input id="service_port" name="service_port" placeholder="8789" inputmode="numeric">
+        </div>
+        <div>
+          <label for="account_id">Derived account id</label>
+          <input id="account_id" name="account_id" placeholder="S1-ZAK-INDIVIDUAL" readonly>
         </div>
         <div>
           <label for="tailscale">Tailscale address / node</label>
@@ -258,7 +258,8 @@
         <p>
           The bundle should unpack into a folder that contains
           <code>deploy/macos/install-service.sh</code>. Set a unique account id
-          and service port for each Slave install.
+          and service port for each Slave install. The account id is derived
+          from the client name plus account type.
         </p>
         <div id="install_cmd" class="mono">Set a bundle URL to generate the install command.</div>
       </div>
@@ -268,7 +269,7 @@
         <ul>
           <li>Open this page from GitHub Pages.</li>
           <li>Fill the basic client details.</li>
-          <li>Set a unique account id and service port for this Slave.</li>
+          <li>Review the derived account id and set a service port for this Slave.</li>
           <li>Download the tar bundle from the private link.</li>
           <li>Run the local installer from the unpacked bundle.</li>
           <li>Complete the onboarding health check after install.</li>
@@ -294,6 +295,16 @@
     return "INDIVIDUAL";
   }
 
+  function shortName(value) {
+    const raw = (value || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+    if (!raw) return "UNK";
+    return raw.slice(0, 3);
+  }
+
+  function deriveAccountId(clientName, accountType) {
+    return `S1-${shortName(clientName)}-${normalizeAccountType(accountType)}`;
+  }
+
   function loadState() {
     const params = new URLSearchParams(window.location.search);
     let saved = {};
@@ -304,7 +315,6 @@
     }
     const values = {
       client_name: params.get("client_name") || saved.client_name || "",
-      account_id: params.get("account_id") || saved.account_id || "",
       account_type: normalizeAccountType(params.get("account_type") || saved.account_type || saved.broker_type),
       service_port: params.get("service_port") || saved.service_port || "",
       tailscale: params.get("tailscale") || saved.tailscale || "",
@@ -314,13 +324,17 @@
     Object.entries(values).forEach(([key, value]) => {
       $(key).value = value;
     });
+    updateDerivedAccountId();
     refreshLinks();
+  }
+
+  function updateDerivedAccountId() {
+    $("account_id").value = deriveAccountId($("client_name").value, $("account_type").value);
   }
 
   function formData() {
     return {
       client_name: $("client_name").value.trim(),
-      account_id: $("account_id").value.trim(),
       account_type: normalizeAccountType($("account_type").value),
       service_port: $("service_port").value.trim(),
       tailscale: $("tailscale").value.trim(),
@@ -351,7 +365,7 @@
       `mkdir -p slave-bundle`,
       `tar -xzf slave-bundle.tar.gz -C slave-bundle --strip-components=1`,
       `cd slave-bundle`,
-      `TRADEBOT_ACCOUNT_ID="${$("account_id").value.trim() || "S1-INDIVIDUAL"}" TRADEBOT_ACCOUNT_TYPE="${normalizeAccountType($("account_type").value)}" SERVICE_PORT="${servicePort}" ./deploy/macos/install-service.sh`,
+      `TRADEBOT_ACCOUNT_ID="${deriveAccountId($("client_name").value, $("account_type").value)}" TRADEBOT_ACCOUNT_TYPE="${normalizeAccountType($("account_type").value)}" SERVICE_PORT="${servicePort}" ./deploy/macos/install-service.sh`,
     ].join(" && \\\n  ");
   }
 
@@ -379,8 +393,11 @@
   $("save_btn").addEventListener("click", saveState);
   $("reset_btn").addEventListener("click", resetState);
   $("copy_btn").addEventListener("click", copyCommand);
-  $("onboard-form").querySelectorAll("input, textarea").forEach((el) => {
-    el.addEventListener("input", refreshLinks);
+  $("onboard-form").querySelectorAll("input, textarea, select").forEach((el) => {
+    el.addEventListener("input", () => {
+      updateDerivedAccountId();
+      refreshLinks();
+    });
   });
   loadState();
 </script>
