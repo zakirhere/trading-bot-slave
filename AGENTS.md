@@ -81,7 +81,7 @@ python3 -m venv .venv
 ```
 
 Create a `.env` (see `.env.example`) with:
-- `TRADEBOT_ACCOUNT_ID` — required, unique per account (e.g. `S1-INDIVIDUAL`)
+- `TRADEBOT_ACCOUNT_ID` — required, unique per account (e.g. `S1-ZAK-INDIVIDUAL`)
 - Alpaca **paper** credentials
 - `SERVICE_HOST`/`SERVICE_PORT` (defaults to `127.0.0.1:8788`)
 

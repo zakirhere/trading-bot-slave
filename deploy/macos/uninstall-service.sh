@@ -2,12 +2,15 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SERVICE_SUFFIX="$("${PROJECT_ROOT}/.venv/bin/python" - <<'PY'
+ENV_FILE="${TRADEBOT_ENV_FILE:-.env}"
+SERVICE_SUFFIX="$("${PROJECT_ROOT}/.venv/bin/python" - "${ENV_FILE}" <<'PY'
 from slave_bot import config
 import re
+import sys
+env_file = sys.argv[1]
 account_id = config.ACCOUNT_ID.strip()
 if not account_id:
-    raise SystemExit("Missing TRADEBOT_ACCOUNT_ID in .env")
+    raise SystemExit(f"Missing TRADEBOT_ACCOUNT_ID in {env_file}")
 slug = re.sub(r"[^A-Za-z0-9]+", "-", account_id).strip("-").lower()
 print(slug)
 PY

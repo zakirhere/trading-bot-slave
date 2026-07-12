@@ -305,8 +305,10 @@ def test_instruction_status_endpoint_falls_back_to_broker_client_order_id(runnin
 
 def test_instruction_status_endpoint_404_for_unknown_id(running_server):
     url, _conn = running_server
-    try:
-        urlopen(url + "/instructions/does-not-exist")
-        raise AssertionError("expected HTTPError")
-    except Exception as exc:
-        assert exc.code == 404
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(executor, "broker_status_by_client_order_id", lambda _client_order_id: None)
+        try:
+            urlopen(url + "/instructions/does-not-exist")
+            raise AssertionError("expected HTTPError")
+        except Exception as exc:
+            assert exc.code == 404

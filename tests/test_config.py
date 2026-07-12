@@ -5,20 +5,36 @@ import pytest
 from slave_bot import config
 
 
-def test_account_type_defaults_and_validates(monkeypatch):
+def test_account_type_defaults_and_validates(monkeypatch, tmp_path):
     original = config
-    try:
-        monkeypatch.delenv("TRADEBOT_ACCOUNT_TYPE", raising=False)
-        reloaded = importlib.reload(original)
-        assert reloaded.ACCOUNT_TYPE == "INDIVIDUAL"
+    env_file = tmp_path / ".env.s1-zak-ira"
+    env_file.write_text(
+        "\n".join(
+            [
+                "TRADEBOT_ACCOUNT_ID=S1-ZAK-IRA",
+                "TRADEBOT_ACCOUNT_TYPE=IRA",
+                "SERVICE_PORT=8790",
+            ]
+        )
+    )
 
-        monkeypatch.setenv("TRADEBOT_ACCOUNT_TYPE", "ira")
+    try:
+        monkeypatch.setenv("TRADEBOT_ENV_FILE", str(env_file))
         reloaded = importlib.reload(original)
+        assert reloaded.ACCOUNT_ID == "S1-ZAK-IRA"
         assert reloaded.ACCOUNT_TYPE == "IRA"
 
-        monkeypatch.setenv("TRADEBOT_ACCOUNT_TYPE", "brokerage")
+        env_file.write_text(
+            "\n".join(
+                [
+                    "TRADEBOT_ACCOUNT_ID=S1-ZAK-IRA",
+                    "TRADEBOT_ACCOUNT_TYPE=brokerage",
+                    "SERVICE_PORT=8790",
+                ]
+            )
+        )
         with pytest.raises(RuntimeError, match="TRADEBOT_ACCOUNT_TYPE"):
             importlib.reload(original)
     finally:
-        monkeypatch.delenv("TRADEBOT_ACCOUNT_TYPE", raising=False)
+        monkeypatch.delenv("TRADEBOT_ENV_FILE", raising=False)
         importlib.reload(original)

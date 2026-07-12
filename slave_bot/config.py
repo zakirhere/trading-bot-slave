@@ -8,6 +8,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_ACCOUNT_TYPES = {"INDIVIDUAL", "IRA", "ROTH_IRA", "JOINT", "TRUST"}
 
 
+def _env_file_path() -> Path:
+    raw = os.environ.get("TRADEBOT_ENV_FILE", ".env").strip() or ".env"
+    path = Path(raw)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
 def _load_dotenv(path: Path) -> dict[str, str]:
     out: dict[str, str] = {}
     if not path.exists():
@@ -22,7 +28,7 @@ def _load_dotenv(path: Path) -> dict[str, str]:
 
 
 def _runtime_env() -> dict[str, str]:
-    return {**_load_dotenv(PROJECT_ROOT / ".env"), **os.environ}
+    return {**_load_dotenv(_env_file_path()), **os.environ}
 
 
 def _env_int(name: str, default: int) -> int:
@@ -88,7 +94,7 @@ class AlpacaConfig:
 
 def load_alpaca_config(env_path: Path | None = None) -> AlpacaConfig:
     if env_path is None:
-        env_path = PROJECT_ROOT / ".env"
+        env_path = _env_file_path()
     file_env = _load_dotenv(env_path)
     env = {**file_env, **os.environ}
 

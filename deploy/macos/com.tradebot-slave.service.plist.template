@@ -12,6 +12,8 @@
     <dict>
         <key>PYTHONPATH</key>
         <string>__PROJECT_ROOT__</string>
+        <key>TRADEBOT_ENV_FILE</key>
+        <string>__TRADEBOT_ENV_FILE__</string>
     </dict>
 
     <key>ProgramArguments</key>

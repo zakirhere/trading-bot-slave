@@ -217,6 +217,10 @@
           <input id="account_id" name="account_id" placeholder="S1-ZAK-INDIVIDUAL" readonly>
         </div>
         <div>
+          <label for="env_file">Derived env file</label>
+          <input id="env_file" name="env_file" placeholder=".env.s1-zak-individual" readonly>
+        </div>
+        <div>
           <label for="tailscale">Tailscale address / node</label>
           <input id="tailscale" name="tailscale" placeholder="s2-mac-mini / 100.x.x.x">
         </div>
@@ -305,6 +309,10 @@
     return `S1-${shortName(clientName)}-${normalizeAccountType(accountType)}`;
   }
 
+  function deriveEnvFile(clientName, accountType) {
+    return `.env.${deriveAccountId(clientName, accountType).toLowerCase()}`;
+  }
+
   function loadState() {
     const params = new URLSearchParams(window.location.search);
     let saved = {};
@@ -329,7 +337,9 @@
   }
 
   function updateDerivedAccountId() {
-    $("account_id").value = deriveAccountId($("client_name").value, $("account_type").value);
+    const accountId = deriveAccountId($("client_name").value, $("account_type").value);
+    $("account_id").value = accountId;
+    $("env_file").value = deriveEnvFile($("client_name").value, $("account_type").value);
   }
 
   function formData() {
@@ -365,7 +375,7 @@
       `mkdir -p slave-bundle`,
       `tar -xzf slave-bundle.tar.gz -C slave-bundle --strip-components=1`,
       `cd slave-bundle`,
-      `TRADEBOT_ACCOUNT_ID="${deriveAccountId($("client_name").value, $("account_type").value)}" TRADEBOT_ACCOUNT_TYPE="${normalizeAccountType($("account_type").value)}" SERVICE_PORT="${servicePort}" ./deploy/macos/install-service.sh`,
+      `TRADEBOT_ENV_FILE="${deriveEnvFile($("client_name").value, $("account_type").value)}" TRADEBOT_ACCOUNT_ID="${deriveAccountId($("client_name").value, $("account_type").value)}" TRADEBOT_ACCOUNT_TYPE="${normalizeAccountType($("account_type").value)}" SERVICE_PORT="${servicePort}" ./deploy/macos/install-service.sh`,
     ].join(" && \\\n  ");
   }
 
