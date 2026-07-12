@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tradebot Client Onboarding</title>
+<style>
+  :root {
+    --bg: #f4f7fb;
+    --panel: #ffffff;
+    --panel-soft: #f9fbfe;
+    --border: #d8e0ea;
+    --text: #1f2937;
+    --muted: #5f6b7a;
+    --accent: #2563eb;
+    --accent-2: #0f766e;
+    --good: #16a34a;
+    --warn: #b45309;
+    --shadow: 0 12px 30px rgba(31, 41, 55, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: linear-gradient(180deg, #edf3ff 0%, var(--bg) 22%, #eef6f3 100%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 28px 18px 48px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .hero {
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(216,224,234,0.8);
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 12px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.1; }
+  .subtitle { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 76ch; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1.25fr .75fr;
+    gap: 18px;
+  }
+  @media (max-width: 920px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 18px;
+  }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+  .form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 720px) { .form { grid-template-columns: 1fr; } }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input, textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 12px;
+    font: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  textarea { min-height: 92px; resize: vertical; }
+  .full { grid-column: 1 / -1; }
+  .row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 14px;
+  }
+  button, .btn {
+    appearance: none;
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 12px;
+    padding: 11px 14px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn.secondary, button.secondary {
+    background: #fff;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn.good {
+    background: var(--good);
+  }
+  .btn.warn {
+    background: #fff7ed;
+    color: var(--warn);
+    border-color: #fed7aa;
+  }
+  .stack {
+    display: grid;
+    gap: 12px;
+  }
+  .box {
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .box h3 { margin: 0 0 8px; font-size: 14px; }
+  .box ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px;
+    word-break: break-all;
+    white-space: pre-wrap;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    border: 1px solid #1e293b;
+  }
+  .status {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+    min-height: 18px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-right: 8px;
+    background: #e8eefc;
+    color: var(--accent);
+  }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .split {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Client onboarding</div>
+    <h1>Slave installer front door</h1>
+    <p class="subtitle">
+      This page is the simplest secure entry point: it collects the basic client
+      details in-browser, then sends the client to a private tar bundle or repo
+      release asset. If the download works, repo access is working too.
+    </p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Onboarding form</h2>
+      <p>Fill this out locally. The values stay on the page and in your browser only.</p>
+      <div class="form" id="onboard-form">
+        <div>
+          <label for="client_name">Client name</label>
+          <input id="client_name" name="client_name" placeholder="Zakir" autocomplete="name">
+        </div>
+        <div>
+          <label for="account_id">Account id</label>
+          <input id="account_id" name="account_id" placeholder="S2-INDIVIDUAL">
+        </div>
+        <div>
+          <label for="broker_type">Broker account type</label>
+          <input id="broker_type" name="broker_type" placeholder="Traditional IRA">
+        </div>
+        <div>
+          <label for="tailscale">Tailscale address / node</label>
+          <input id="tailscale" name="tailscale" placeholder="s2-mac-mini / 100.x.x.x">
+        </div>
+        <div>
+          <label for="client_email">Contact email</label>
+          <input id="client_email" name="client_email" placeholder="client@example.com" autocomplete="email">
+        </div>
+        <div>
+          <label for="bundle_url">Bundle URL</label>
+          <input id="bundle_url" name="bundle_url" placeholder="https://github.com/.../releases/download/.../slave.tar.gz">
+        </div>
+        <div class="full">
+          <label for="repo_url">Repo access check URL</label>
+          <input id="repo_url" name="repo_url" placeholder="https://github.com/.../trading-bot-slave">
+        </div>
+        <div class="full">
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" placeholder="Optional: machine name, install date, special risk constraints, etc."></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <button id="save_btn" type="button">Save details</button>
+        <button id="reset_btn" class="secondary" type="button">Reset</button>
+        <button id="copy_btn" class="secondary" type="button">Copy install command</button>
+      </div>
+      <div id="message" class="status"></div>
+    </div>
+
+    <div class="stack">
+      <div class="card">
+        <h2>Download</h2>
+        <p>
+          Use the private tar bundle link below. If the client is not signed in
+          with access, the link should fail. That is the access gate.
+        </p>
+        <div class="box">
+          <div class="split">
+            <span><span class="badge">Step 1</span>Fetch bundle</span>
+            <a id="download_link" class="btn good" href="#" target="_blank" rel="noreferrer">Download tar bundle</a>
+          </div>
+          <div class="status small muted" id="download_hint"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Access check</h2>
+        <p>
+          Keep the Slave repo private. The link below should require the right
+          GitHub access to open.
+        </p>
+        <div class="box">
+          <div class="split">
+            <span><span class="badge">Step 2</span>Repo access</span>
+            <a id="repo_link" class="btn secondary" href="#" target="_blank" rel="noreferrer">Open repo</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Install command</h2>
+        <p>The bundle should unpack into a folder that contains <code>install.sh</code>.</p>
+        <div id="install_cmd" class="mono">Set a bundle URL to generate the install command.</div>
+      </div>
+
+      <div class="card">
+        <h2>Expected flow</h2>
+        <ul>
+          <li>Open this page from GitHub Pages.</li>
+          <li>Fill the basic client details.</li>
+          <li>Download the tar bundle from the private link.</li>
+          <li>Run the local installer from the unpacked bundle.</li>
+          <li>Complete the onboarding health check after install.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const stateKey = "tradebot.onboarding.form.v1";
+
+  function safeUrl(value) {
+    const raw = (value || "").trim();
+    if (!raw) return "";
+    try {
+      return new URL(raw, window.location.href).toString();
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function loadState() {
+    const params = new URLSearchParams(window.location.search);
+    let saved = {};
+    try {
+      saved = JSON.parse(localStorage.getItem(stateKey) || "{}");
+    } catch (err) {
+      saved = {};
+    }
+    const values = {
+      client_name: params.get("client_name") || saved.client_name || "",
+      account_id: params.get("account_id") || saved.account_id || "",
+      broker_type: params.get("broker_type") || saved.broker_type || "",
+      tailscale: params.get("tailscale") || saved.tailscale || "",
+      client_email: params.get("client_email") || saved.client_email || "",
+      bundle_url: params.get("bundle_url") || saved.bundle_url || "",
+      repo_url: params.get("repo_url") || saved.repo_url || "",
+      notes: params.get("notes") || saved.notes || "",
+    };
+    Object.entries(values).forEach(([key, value]) => {
+      $(key).value = value;
+    });
+    refreshLinks();
+  }
+
+  function formData() {
+    return {
+      client_name: $("client_name").value.trim(),
+      account_id: $("account_id").value.trim(),
+      broker_type: $("broker_type").value.trim(),
+      tailscale: $("tailscale").value.trim(),
+      client_email: $("client_email").value.trim(),
+      bundle_url: safeUrl($("bundle_url").value),
+      repo_url: safeUrl($("repo_url").value),
+      notes: $("notes").value.trim(),
+    };
+  }
+
+  function saveState() {
+    const data = formData();
+    localStorage.setItem(stateKey, JSON.stringify(data));
+    refreshLinks();
+    $("message").textContent = "Saved locally in this browser.";
+  }
+
+  function resetState() {
+    localStorage.removeItem(stateKey);
+    $("onboard-form").querySelectorAll("input, textarea").forEach((el) => el.value = "");
+    refreshLinks();
+    $("message").textContent = "Cleared local values.";
+  }
+
+  function commandFor(data) {
+    if (!data.bundle_url) return "Set a bundle URL to generate the install command.";
+    return [
+      `curl -L -o slave-bundle.tar.gz "${data.bundle_url}"`,
+      `tar -xzf slave-bundle.tar.gz`,
+      `cd trading-bot-slave`,
+      `./install.sh`,
+    ].join(" && \\\n  ");
+  }
+
+  function refreshLinks() {
+    const data = formData();
+    const download = $("download_link");
+    const repo = $("repo_link");
+    const hint = $("download_hint");
+    const cmd = $("install_cmd");
+
+    if (data.bundle_url) {
+      download.href = data.bundle_url;
+      hint.textContent = "If this opens only after GitHub auth, repo access is working.";
+      cmd.textContent = commandFor(data);
+    } else {
+      download.href = "#";
+      hint.textContent = "Add a bundle URL to enable the download button.";
+      cmd.textContent = "Set a bundle URL to generate the install command.";
+    }
+
+    if (data.repo_url) {
+      repo.href = data.repo_url;
+    } else {
+      repo.href = "#";
+    }
+  }
+
+  async function copyCommand() {
+    const text = $("install_cmd").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("message").textContent = "Install command copied to clipboard.";
+    } catch (err) {
+      $("message").textContent = "Clipboard copy failed in this browser.";
+    }
+  }
+
+  $("save_btn").addEventListener("click", saveState);
+  $("reset_btn").addEventListener("click", resetState);
+  $("copy_btn").addEventListener("click", copyCommand);
+  $("onboard-form").querySelectorAll("input, textarea").forEach((el) => {
+    el.addEventListener("input", refreshLinks);
+  });
+  loadState();
+</script>
+</body>
+</html>
