@@ -2,7 +2,17 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-SERVICE_LABEL="com.tradebot-slave.service"
+SERVICE_SUFFIX="$("${PROJECT_ROOT}/.venv/bin/python" - <<'PY'
+from slave_bot import config
+import re
+account_id = config.ACCOUNT_ID.strip()
+if not account_id:
+    raise SystemExit("Missing TRADEBOT_ACCOUNT_ID in .env")
+slug = re.sub(r"[^A-Za-z0-9]+", "-", account_id).strip("-").lower()
+print(slug)
+PY
+)"
+SERVICE_LABEL="${SERVICE_LABEL:-com.tradebot-slave.${SERVICE_SUFFIX}}"
 
 echo "Repo:"
 git -C "${PROJECT_ROOT}" status --short --branch

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.tradebot-slave.service</string>
+    <string>__SERVICE_LABEL__</string>
 
     <key>WorkingDirectory</key>
     <string>__PROJECT_ROOT__</string>

@@ -184,7 +184,8 @@
     <p class="subtitle">
       This page is the simplest secure entry point: it collects the basic client
       details in-browser, then sends the client to a private tar bundle or repo
-      release asset. If the download works, repo access is working too.
+      release asset. If the download works, repo access is working too. Each
+      Slave install is one account, one port, one launchd service.
     </p>
   </div>
 
@@ -204,6 +205,10 @@
         <div>
           <label for="broker_type">Broker account type</label>
           <input id="broker_type" name="broker_type" placeholder="Traditional IRA">
+        </div>
+        <div>
+          <label for="service_port">Service port</label>
+          <input id="service_port" name="service_port" placeholder="8789" inputmode="numeric">
         </div>
         <div>
           <label for="tailscale">Tailscale address / node</label>
@@ -244,7 +249,11 @@
 
       <div class="card">
         <h2>Install command</h2>
-        <p>The bundle should unpack into a folder that contains <code>deploy/macos/install-service.sh</code>.</p>
+        <p>
+          The bundle should unpack into a folder that contains
+          <code>deploy/macos/install-service.sh</code>. Set a unique account id
+          and service port for each Slave install.
+        </p>
         <div id="install_cmd" class="mono">Set a bundle URL to generate the install command.</div>
       </div>
 
@@ -253,6 +262,7 @@
         <ul>
           <li>Open this page from GitHub Pages.</li>
           <li>Fill the basic client details.</li>
+          <li>Set a unique account id and service port for this Slave.</li>
           <li>Download the tar bundle from the private link.</li>
           <li>Run the local installer from the unpacked bundle.</li>
           <li>Complete the onboarding health check after install.</li>
@@ -279,6 +289,7 @@
       client_name: params.get("client_name") || saved.client_name || "",
       account_id: params.get("account_id") || saved.account_id || "",
       broker_type: params.get("broker_type") || saved.broker_type || "",
+      service_port: params.get("service_port") || saved.service_port || "",
       tailscale: params.get("tailscale") || saved.tailscale || "",
       client_email: params.get("client_email") || saved.client_email || "",
       notes: params.get("notes") || saved.notes || "",
@@ -294,6 +305,7 @@
       client_name: $("client_name").value.trim(),
       account_id: $("account_id").value.trim(),
       broker_type: $("broker_type").value.trim(),
+      service_port: $("service_port").value.trim(),
       tailscale: $("tailscale").value.trim(),
       client_email: $("client_email").value.trim(),
       notes: $("notes").value.trim(),
@@ -315,13 +327,14 @@
   }
 
   function commandFor() {
+    const servicePort = $("service_port").value.trim() || "8788";
     return [
       `curl -L -o slave-bundle.tar.gz "${defaultBundleUrl}"`,
       `rm -rf slave-bundle`,
       `mkdir -p slave-bundle`,
       `tar -xzf slave-bundle.tar.gz -C slave-bundle --strip-components=1`,
       `cd slave-bundle`,
-      `./deploy/macos/install-service.sh`,
+      `TRADEBOT_ACCOUNT_ID="${$("account_id").value.trim() || "S1-INDIVIDUAL"}" SERVICE_PORT="${servicePort}" ./deploy/macos/install-service.sh`,
     ].join(" && \\\n  ");
   }
 
