@@ -214,8 +214,9 @@
           <input id="client_email" name="client_email" placeholder="client@example.com" autocomplete="email">
         </div>
         <div>
-          <label for="bundle_url">Bundle URL</label>
+          <label for="bundle_url">Bundle URL (optional)</label>
           <input id="bundle_url" name="bundle_url" placeholder="https://github.com/.../releases/download/.../slave.tar.gz">
+          <div class="status small muted">Leave blank to use the GitHub source tarball for this repo.</div>
         </div>
         <div class="full">
           <label for="repo_url">Repo access check URL</label>
@@ -244,7 +245,7 @@
         <div class="box">
           <div class="split">
             <span><span class="badge">Step 1</span>Fetch bundle</span>
-            <a id="download_link" class="btn good" href="#" target="_blank" rel="noreferrer">Download tar bundle</a>
+            <a id="download_link" class="btn good" href="#" target="_blank" rel="noreferrer" download>Download tar bundle</a>
           </div>
           <div class="status small muted" id="download_hint"></div>
         </div>
@@ -266,7 +267,7 @@
 
       <div class="card">
         <h2>Install command</h2>
-        <p>The bundle should unpack into a folder that contains <code>install.sh</code>.</p>
+        <p>The bundle should unpack into a folder that contains <code>deploy/macos/install-service.sh</code>.</p>
         <div id="install_cmd" class="mono">Set a bundle URL to generate the install command.</div>
       </div>
 
@@ -287,6 +288,7 @@
 <script>
   const $ = (id) => document.getElementById(id);
   const stateKey = "tradebot.onboarding.form.v1";
+  const defaultBundleUrl = "https://github.com/zakirhere/trading-bot-slave/archive/refs/heads/main.tar.gz";
 
   function safeUrl(value) {
     const raw = (value || "").trim();
@@ -350,31 +352,32 @@
   }
 
   function commandFor(data) {
-    if (!data.bundle_url) return "Set a bundle URL to generate the install command.";
+    const bundleUrl = data.bundle_url || defaultBundleUrl;
+    if (!bundleUrl) return "Set a bundle URL to generate the install command.";
     return [
-      `curl -L -o slave-bundle.tar.gz "${data.bundle_url}"`,
-      `tar -xzf slave-bundle.tar.gz`,
-      `cd trading-bot-slave`,
-      `./install.sh`,
+      `curl -L -o slave-bundle.tar.gz "${bundleUrl}"`,
+      `rm -rf slave-bundle`,
+      `mkdir -p slave-bundle`,
+      `tar -xzf slave-bundle.tar.gz -C slave-bundle --strip-components=1`,
+      `cd slave-bundle`,
+      `./deploy/macos/install-service.sh`,
     ].join(" && \\\n  ");
   }
 
   function refreshLinks() {
     const data = formData();
+    const bundleUrl = data.bundle_url || defaultBundleUrl;
     const download = $("download_link");
     const repo = $("repo_link");
     const hint = $("download_hint");
     const cmd = $("install_cmd");
 
-    if (data.bundle_url) {
-      download.href = data.bundle_url;
-      hint.textContent = "If this opens only after GitHub auth, repo access is working.";
-      cmd.textContent = commandFor(data);
-    } else {
-      download.href = "#";
-      hint.textContent = "Add a bundle URL to enable the download button.";
-      cmd.textContent = "Set a bundle URL to generate the install command.";
-    }
+    download.href = bundleUrl;
+    download.setAttribute("download", "");
+    hint.textContent = data.bundle_url
+      ? "Using the custom bundle URL."
+      : "Using the GitHub source tarball for this repo.";
+    cmd.textContent = commandFor(data);
 
     if (data.repo_url) {
       repo.href = data.repo_url;
