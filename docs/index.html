@@ -213,11 +213,6 @@
           <label for="client_email">Contact email</label>
           <input id="client_email" name="client_email" placeholder="client@example.com" autocomplete="email">
         </div>
-        <div>
-          <label for="bundle_url">Bundle URL (optional)</label>
-          <input id="bundle_url" name="bundle_url" placeholder="https://github.com/.../releases/download/.../slave.tar.gz">
-          <div class="status small muted">Leave blank to use the GitHub source tarball for this repo.</div>
-        </div>
         <div class="full">
           <label for="repo_url">Repo access check URL</label>
           <input id="repo_url" name="repo_url" placeholder="https://github.com/.../trading-bot-slave">
@@ -314,7 +309,6 @@
       broker_type: params.get("broker_type") || saved.broker_type || "",
       tailscale: params.get("tailscale") || saved.tailscale || "",
       client_email: params.get("client_email") || saved.client_email || "",
-      bundle_url: params.get("bundle_url") || saved.bundle_url || "",
       repo_url: params.get("repo_url") || saved.repo_url || "",
       notes: params.get("notes") || saved.notes || "",
     };
@@ -331,7 +325,6 @@
       broker_type: $("broker_type").value.trim(),
       tailscale: $("tailscale").value.trim(),
       client_email: $("client_email").value.trim(),
-      bundle_url: safeUrl($("bundle_url").value),
       repo_url: safeUrl($("repo_url").value),
       notes: $("notes").value.trim(),
     };
@@ -352,10 +345,8 @@
   }
 
   function commandFor(data) {
-    const bundleUrl = data.bundle_url || defaultBundleUrl;
-    if (!bundleUrl) return "Set a bundle URL to generate the install command.";
     return [
-      `curl -L -o slave-bundle.tar.gz "${bundleUrl}"`,
+      `curl -L -o slave-bundle.tar.gz "${defaultBundleUrl}"`,
       `rm -rf slave-bundle`,
       `mkdir -p slave-bundle`,
       `tar -xzf slave-bundle.tar.gz -C slave-bundle --strip-components=1`,
@@ -366,17 +357,14 @@
 
   function refreshLinks() {
     const data = formData();
-    const bundleUrl = data.bundle_url || defaultBundleUrl;
     const download = $("download_link");
     const repo = $("repo_link");
     const hint = $("download_hint");
     const cmd = $("install_cmd");
 
-    download.href = bundleUrl;
+    download.href = defaultBundleUrl;
     download.setAttribute("download", "");
-    hint.textContent = data.bundle_url
-      ? "Using the custom bundle URL."
-      : "Using the GitHub source tarball for this repo.";
+    hint.textContent = "Using the GitHub source tarball for this repo.";
     cmd.textContent = commandFor(data);
 
     if (data.repo_url) {
