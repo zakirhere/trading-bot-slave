@@ -214,10 +214,6 @@
           <input id="client_email" name="client_email" placeholder="client@example.com" autocomplete="email">
         </div>
         <div class="full">
-          <label for="repo_url">Repo access check URL</label>
-          <input id="repo_url" name="repo_url" placeholder="https://github.com/.../trading-bot-slave">
-        </div>
-        <div class="full">
           <label for="notes">Notes</label>
           <textarea id="notes" name="notes" placeholder="Optional: machine name, install date, special risk constraints, etc."></textarea>
         </div>
@@ -247,20 +243,6 @@
       </div>
 
       <div class="card">
-        <h2>Access check</h2>
-        <p>
-          Keep the Slave repo private. The link below should require the right
-          GitHub access to open.
-        </p>
-        <div class="box">
-          <div class="split">
-            <span><span class="badge">Step 2</span>Repo access</span>
-            <a id="repo_link" class="btn secondary" href="#" target="_blank" rel="noreferrer">Open repo</a>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
         <h2>Install command</h2>
         <p>The bundle should unpack into a folder that contains <code>deploy/macos/install-service.sh</code>.</p>
         <div id="install_cmd" class="mono">Set a bundle URL to generate the install command.</div>
@@ -285,16 +267,6 @@
   const stateKey = "tradebot.onboarding.form.v1";
   const defaultBundleUrl = "https://github.com/zakirhere/trading-bot-slave/archive/refs/heads/main.tar.gz";
 
-  function safeUrl(value) {
-    const raw = (value || "").trim();
-    if (!raw) return "";
-    try {
-      return new URL(raw, window.location.href).toString();
-    } catch (err) {
-      return "";
-    }
-  }
-
   function loadState() {
     const params = new URLSearchParams(window.location.search);
     let saved = {};
@@ -309,7 +281,6 @@
       broker_type: params.get("broker_type") || saved.broker_type || "",
       tailscale: params.get("tailscale") || saved.tailscale || "",
       client_email: params.get("client_email") || saved.client_email || "",
-      repo_url: params.get("repo_url") || saved.repo_url || "",
       notes: params.get("notes") || saved.notes || "",
     };
     Object.entries(values).forEach(([key, value]) => {
@@ -325,7 +296,6 @@
       broker_type: $("broker_type").value.trim(),
       tailscale: $("tailscale").value.trim(),
       client_email: $("client_email").value.trim(),
-      repo_url: safeUrl($("repo_url").value),
       notes: $("notes").value.trim(),
     };
   }
@@ -344,7 +314,7 @@
     $("message").textContent = "Cleared local values.";
   }
 
-  function commandFor(data) {
+  function commandFor() {
     return [
       `curl -L -o slave-bundle.tar.gz "${defaultBundleUrl}"`,
       `rm -rf slave-bundle`,
@@ -356,22 +326,14 @@
   }
 
   function refreshLinks() {
-    const data = formData();
     const download = $("download_link");
-    const repo = $("repo_link");
     const hint = $("download_hint");
     const cmd = $("install_cmd");
 
     download.href = defaultBundleUrl;
     download.setAttribute("download", "");
     hint.textContent = "Using the GitHub source tarball for this repo.";
-    cmd.textContent = commandFor(data);
-
-    if (data.repo_url) {
-      repo.href = data.repo_url;
-    } else {
-      repo.href = "#";
-    }
+    cmd.textContent = commandFor();
   }
 
   async function copyCommand() {
