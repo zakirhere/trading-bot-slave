@@ -44,6 +44,7 @@ def test_health_endpoint_reports_ok(running_server):
         body = json.loads(resp.read())
     assert resp.status == 200
     assert body["ok"] is True
+    assert body["account_type"] == config.ACCOUNT_TYPE
     assert body["halted"] is False
 
 

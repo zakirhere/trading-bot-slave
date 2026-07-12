@@ -23,6 +23,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "account_id": config.ACCOUNT_ID or None,
+                    "account_type": config.ACCOUNT_TYPE,
                     "halted": s.halted,
                     "halt_reason": s.halt_reason,
                 },

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ALLOWED_ACCOUNT_TYPES = {"INDIVIDUAL", "IRA", "ROTH_IRA", "JOINT", "TRUST"}
 
 
 def _load_dotenv(path: Path) -> dict[str, str]:
@@ -47,6 +48,17 @@ NO_NEW_TRADES_BEFORE_CLOSE_MIN = 5
 # directory. Unset falls back to the unnamespaced legacy layout for local
 # testing/dev only.
 ACCOUNT_ID = _runtime_env().get("TRADEBOT_ACCOUNT_ID", "").strip()
+
+
+def _account_type_from_env() -> str:
+    account_type = _runtime_env().get("TRADEBOT_ACCOUNT_TYPE", "INDIVIDUAL").strip().upper()
+    if account_type not in ALLOWED_ACCOUNT_TYPES:
+        allowed = ", ".join(sorted(ALLOWED_ACCOUNT_TYPES))
+        raise RuntimeError(f"TRADEBOT_ACCOUNT_TYPE must be one of: {allowed}")
+    return account_type
+
+
+ACCOUNT_TYPE = _account_type_from_env()
 
 
 def _state_dir_for_account(home: Path, account_id: str) -> Path:
