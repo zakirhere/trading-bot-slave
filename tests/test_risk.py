@@ -163,3 +163,16 @@ def test_estimate_open_risk_pairs_put_credit_spread_and_ignores_equity():
     ]
 
     assert risk.estimate_open_risk_usd(positions) == 100.0
+
+
+def test_daily_loss_at_two_percent_hard_halts():
+    rc = risk.check_daily_loss({"equity": "9800", "last_equity": "10000"})
+
+    assert not rc.allowed
+    assert "-2.00%" in rc.reason
+
+
+def test_daily_loss_above_limit_allows():
+    rc = risk.check_daily_loss({"equity": "9810", "last_equity": "10000"})
+
+    assert rc.allowed

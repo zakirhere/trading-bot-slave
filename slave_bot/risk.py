@@ -72,6 +72,23 @@ def check_pretrade(
     return RiskCheck(True)
 
 
+def check_daily_loss(account: dict) -> RiskCheck:
+    try:
+        equity = decimal_value(account.get("equity"))
+        previous_equity = decimal_value(account.get("last_equity"))
+    except Exception:
+        return RiskCheck(False, "daily loss check could not parse account equity")
+    if previous_equity <= 0:
+        return RiskCheck(False, "daily loss check missing positive last_equity")
+    pnl_pct = (equity - previous_equity) / previous_equity * Decimal("100")
+    if pnl_pct <= Decimal(str(config.DAILY_LOSS_LIMIT_PCT)):
+        return RiskCheck(
+            False,
+            f"daily P/L {pnl_pct:.2f}% <= hard halt {config.DAILY_LOSS_LIMIT_PCT:.2f}%",
+        )
+    return RiskCheck(True)
+
+
 def estimate_open_risk_usd(positions: list[dict]) -> float:
     option_positions: list[OptionPosition] = []
     total = Decimal("0")

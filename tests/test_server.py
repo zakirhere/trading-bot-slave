@@ -5,7 +5,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from slave_bot import config, db, executor, server
+from slave_bot import config, db, executor, server, state
 
 
 @pytest.fixture
@@ -14,6 +14,7 @@ def running_server(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB_FILE", db_path)
     monkeypatch.setattr(config, "STATE_DIR", tmp_path)
     monkeypatch.setattr(config, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(server.config, "load_alpaca_config", lambda: SimpleNamespace(mode="paper"))
 
     srv = server.make_server(host="127.0.0.1", port=0)
     port = srv.server_address[1]
@@ -45,7 +46,61 @@ def test_health_endpoint_reports_ok(running_server):
     assert resp.status == 200
     assert body["ok"] is True
     assert body["account_type"] == config.ACCOUNT_TYPE
+    assert body["mode"] in {"paper", "live"}
     assert body["halted"] is False
+
+
+def test_halt_endpoint_engages_local_killswitch(running_server):
+    url, _conn = running_server
+
+    status, body = _post(url, "/halt", {"reason": "preflight failed"})
+
+    assert status == 200
+    assert body == {"halted": True, "halt_reason": "preflight failed"}
+    current = state.load()
+    assert current.halted is True
+    assert current.halt_reason == "preflight failed"
+
+
+def test_broker_read_endpoints_return_account_facts(running_server, monkeypatch):
+    url, _conn = running_server
+
+    class FakeBroker:
+        cfg = SimpleNamespace(mode="paper")
+
+        def get_account(self):
+            return {"status": "ACTIVE", "trading_blocked": False}
+
+        def get_clock(self):
+            return {"is_open": True}
+
+        def get_positions(self):
+            return [{"symbol": "SPY260731P00700000", "qty": "-1"}]
+
+        def list_orders(self, **kwargs):
+            return [{"id": "order-1", "status": kwargs["status"]}]
+
+        def get_order(self, order_id):
+            return {"id": order_id, "status": "filled"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(server.config, "load_alpaca_config", lambda: SimpleNamespace(mode="paper"))
+    monkeypatch.setattr(server.broker, "create_trading_broker", lambda cfg: FakeBroker())
+
+    expected = {
+        "/account": ("account", {"status": "ACTIVE", "trading_blocked": False}),
+        "/clock": ("clock", {"is_open": True}),
+        "/broker/positions": ("positions", [{"symbol": "SPY260731P00700000", "qty": "-1"}]),
+        "/broker/orders?status=filled": ("orders", [{"id": "order-1", "status": "filled"}]),
+        "/broker/orders/order-1": ("order", {"id": "order-1", "status": "filled"}),
+    }
+    for path, (key, value) in expected.items():
+        with urlopen(url + path) as resp:
+            body = json.loads(resp.read())
+        assert resp.status == 200
+        assert body[key] == value
 
 
 def test_instruction_endpoint_ingests_and_executes(running_server, monkeypatch):
@@ -56,7 +111,7 @@ def test_instruction_endpoint_ingests_and_executes(running_server, monkeypatch):
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}
@@ -137,7 +192,7 @@ def test_instruction_status_endpoint_finds_blocked_stock_instruction(running_ser
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": False}
@@ -226,7 +281,7 @@ def test_instruction_status_endpoint_returns_current_status(running_server, monk
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}

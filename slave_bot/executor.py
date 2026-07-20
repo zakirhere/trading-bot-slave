@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -26,6 +27,7 @@ SUPPORTED_KINDS = {
     "option_spread_open",
     "option_spread_close",
 }
+_execution_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -139,7 +141,34 @@ def ingest_instruction(
     )
 
 
+def pending_open_reservations(
+    conn: sqlite3.Connection,
+    *,
+    exclude_request_id: int,
+) -> tuple[float, int]:
+    """Reserve risk/slots for accepted opens not yet terminal at the broker."""
+    pending = [
+        req
+        for req in db.list_requests_by_status(conn, status=db.STATUS_SUBMITTED, limit=500)
+        if req.id != exclude_request_id and req.kind == "option_spread_open"
+    ]
+    return sum(expected_risk_usd(req) for req in pending), len(pending)
+
+
 def execute_request(
+    conn: sqlite3.Connection,
+    req: db.TradeRequest,
+    *,
+    force_closed: bool = False,
+) -> db.TradeRequest:
+    # The check and resulting submission/reservation must be one process-local
+    # critical section. Otherwise two HTTP threads can both observe the same
+    # available risk before either request becomes submitted.
+    with _execution_lock:
+        return _execute_request(conn, req, force_closed=force_closed)
+
+
+def _execute_request(
     conn: sqlite3.Connection,
     req: db.TradeRequest,
     *,
@@ -175,6 +204,19 @@ def execute_request(
                 reason="Alpaca account is blocked",
             )
 
+        if req.kind in {"stock_market_buy", "option_spread_open"}:
+            daily_loss = risk.check_daily_loss(acct)
+            if not daily_loss.allowed:
+                with state.transaction() as current:
+                    current.halted = True
+                    current.halt_reason = daily_loss.reason
+                return db.update_status(
+                    conn,
+                    req.id,
+                    status=db.STATUS_BLOCKED,
+                    reason=daily_loss.reason,
+                )
+
         clock = b.get_clock()
         if not clock.get("is_open") and not req.dry_run and not force_closed:
             return db.update_status(
@@ -182,14 +224,6 @@ def execute_request(
                 req.id,
                 status=db.STATUS_BLOCKED,
                 reason="market is closed",
-            )
-
-        if cfg.is_live and req.kind in {"option_spread_open", "option_spread_close"}:
-            return db.update_status(
-                conn,
-                req.id,
-                status=db.STATUS_BLOCKED,
-                reason="option spread automation is paper-only",
             )
 
         if (
@@ -216,7 +250,12 @@ def execute_request(
                 )
 
         expected_notional = expected_risk_usd(req)
-        open_risk = risk.estimate_open_risk_usd(positions)
+        reserved_risk, reserved_slots = pending_open_reservations(
+            conn,
+            exclude_request_id=req.id,
+        )
+        open_risk = risk.estimate_open_risk_usd(positions) + reserved_risk
+        open_position_count = risk.estimate_position_slots(positions) + reserved_slots
         closing_kind = req.kind in {"stock_market_sell", "option_spread_close"}
         if closing_kind:
             if current_state.halted:
@@ -232,7 +271,7 @@ def execute_request(
                 s=current_state,
                 is_live=cfg.is_live,
                 expected_notional_usd=expected_notional,
-                open_position_count=risk.estimate_position_slots(positions),
+                open_position_count=open_position_count,
                 open_risk_usd=open_risk,
             )
             if not rc.allowed:

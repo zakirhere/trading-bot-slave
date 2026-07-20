@@ -1,6 +1,8 @@
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+import pytest
+
 from slave_bot import db, executor, state
 
 
@@ -50,7 +52,8 @@ def test_ingest_instruction_rejects_unsupported_kind(tmp_path):
         conn.close()
 
 
-def test_execute_option_spread_submits_credit_as_negative_limit(tmp_path, monkeypatch):
+@pytest.mark.parametrize("is_live", [False, True])
+def test_execute_option_spread_submits_credit_as_negative_limit(tmp_path, monkeypatch, is_live):
     conn = _conn(tmp_path)
     fake_state = state.State()
     submitted = {}
@@ -60,7 +63,7 @@ def test_execute_option_spread_submits_credit_as_negative_limit(tmp_path, monkey
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}
@@ -91,7 +94,7 @@ def test_execute_option_spread_submits_credit_as_negative_limit(tmp_path, monkey
     def fake_transaction():
         yield fake_state
 
-    monkeypatch.setattr(executor.config, "load_alpaca_config", lambda: SimpleNamespace(is_live=False))
+    monkeypatch.setattr(executor.config, "load_alpaca_config", lambda: SimpleNamespace(is_live=is_live))
     monkeypatch.setattr(executor.broker, "create_trading_broker", lambda cfg: FakeBroker(cfg))
     monkeypatch.setattr(executor.state, "load", lambda: fake_state)
     monkeypatch.setattr(executor.state, "transaction", fake_transaction)
@@ -134,7 +137,7 @@ def test_execute_blocks_when_halted_state_for_close(tmp_path, monkeypatch):
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}
@@ -179,7 +182,7 @@ def test_execute_blocks_when_over_per_trade_risk_cap(tmp_path, monkeypatch):
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}
@@ -218,6 +221,86 @@ def test_execute_blocks_when_over_per_trade_risk_cap(tmp_path, monkeypatch):
         conn.close()
 
 
+def test_pending_open_orders_reserve_risk_and_slots(tmp_path, monkeypatch):
+    conn = _conn(tmp_path)
+    fake_state = state.State()
+    submitted = []
+
+    class FakeBroker:
+        def __init__(self, cfg):
+            self.cfg = cfg
+
+        def get_account(self):
+            return {
+                "trading_blocked": False,
+                "account_blocked": False,
+                "equity": "10000",
+                "last_equity": "10000",
+            }
+
+        def get_clock(self):
+            return {"is_open": True}
+
+        def get_positions(self):
+            return []
+
+        def format_mleg_limit_price(self, **kwargs):
+            return -0.01
+
+        def submit_mleg_limit_order(self, **kwargs):
+            submitted.append(kwargs["client_order_id"])
+            return executor.broker.OrderResult(
+                broker_order_id=f"broker-{len(submitted)}",
+                status="pending_new",
+                symbol="SPY",
+                side="sell",
+                qty=1,
+                raw={},
+            )
+
+        def close(self):
+            pass
+
+    @contextmanager
+    def fake_transaction():
+        yield fake_state
+
+    monkeypatch.setattr(executor.config, "MAX_RISK_PER_TRADE_USD", 100)
+    monkeypatch.setattr(executor.config, "MAX_TOTAL_OPEN_RISK_USD", 500)
+    monkeypatch.setattr(executor.config, "MAX_CONCURRENT_POSITIONS", 5)
+    monkeypatch.setattr(executor.config, "load_alpaca_config", lambda: SimpleNamespace(is_live=False))
+    monkeypatch.setattr(executor.broker, "create_trading_broker", lambda cfg: FakeBroker(cfg))
+    monkeypatch.setattr(executor.state, "load", lambda: fake_state)
+    monkeypatch.setattr(executor.state, "transaction", fake_transaction)
+
+    try:
+        results = []
+        for index in range(6):
+            req = executor.ingest_instruction(
+                conn,
+                {
+                    "instruction_id": f"reserve-{index}",
+                    "kind": "option_spread_open",
+                    "symbol": "SPY",
+                    "qty": 1,
+                    "side": "sell",
+                    "limit_credit": 0.01,
+                    "payload": {
+                        "legs": [],
+                        "max_risk": "100.00",
+                    },
+                },
+            )
+            results.append(executor.execute_request(conn, req))
+
+        assert len(submitted) == 5
+        assert [req.status for req in results].count(db.STATUS_SUBMITTED) == 5
+        assert results[-1].status == db.STATUS_BLOCKED
+        assert "cap $500" in results[-1].reason
+    finally:
+        conn.close()
+
+
 def test_execute_blocks_duplicate_open_leg(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
     fake_state = state.State()
@@ -227,7 +310,7 @@ def test_execute_blocks_duplicate_open_leg(tmp_path, monkeypatch):
             self.cfg = cfg
 
         def get_account(self):
-            return {"trading_blocked": False, "account_blocked": False}
+            return {"trading_blocked": False, "account_blocked": False, "equity": "10000", "last_equity": "10000"}
 
         def get_clock(self):
             return {"is_open": True}

@@ -43,9 +43,21 @@ def _env_int(name: str, default: int) -> int:
 # make them tighter via overrides on top, never looser. Strategy-blind by
 # design: this Slave process never knows *why* an order looks the way it
 # does, only whether it fits within these generic limits.
-MAX_RISK_PER_TRADE_USD = 500
-MAX_TOTAL_OPEN_RISK_USD = 10000
-MAX_CONCURRENT_POSITIONS = 100
+HARD_MAX_RISK_PER_TRADE_USD = 500
+HARD_MAX_TOTAL_OPEN_RISK_USD = 10000
+HARD_MAX_CONCURRENT_POSITIONS = 100
+
+
+def _tightened_int(name: str, hard_max: int) -> int:
+    value = _env_int(name, hard_max)
+    if value <= 0 or value > hard_max:
+        raise RuntimeError(f"{name} must be between 1 and hard maximum {hard_max}")
+    return value
+
+
+MAX_RISK_PER_TRADE_USD = _tightened_int("TRADEBOT_MAX_RISK_PER_TRADE_USD", HARD_MAX_RISK_PER_TRADE_USD)
+MAX_TOTAL_OPEN_RISK_USD = _tightened_int("TRADEBOT_MAX_TOTAL_OPEN_RISK_USD", HARD_MAX_TOTAL_OPEN_RISK_USD)
+MAX_CONCURRENT_POSITIONS = _tightened_int("TRADEBOT_MAX_CONCURRENT_POSITIONS", HARD_MAX_CONCURRENT_POSITIONS)
 DAILY_LOSS_LIMIT_PCT = -2.0
 NO_NEW_TRADES_BEFORE_CLOSE_MIN = 5
 
@@ -73,14 +85,26 @@ def _state_dir_for_account(home: Path, account_id: str) -> Path:
 
 
 STATE_DIR = _state_dir_for_account(Path.home(), ACCOUNT_ID)
-STATE_FILE = STATE_DIR / "state.json"
-DB_FILE = STATE_DIR / "tradebot.sqlite"
+# Master and Slave may run on the same machine for the same account. Keep the
+# account directory shared for operations, but never share mutable state files.
+STATE_FILE = STATE_DIR / "slave-state.json"
+DB_FILE = STATE_DIR / "slave.sqlite"
 
 KILLSWITCH_HOST = "127.0.0.1"
 KILLSWITCH_PORT = 8765
 SERVICE_HOST = _runtime_env().get("SERVICE_HOST", "127.0.0.1")
 SERVICE_PORT = _env_int("SERVICE_PORT", 8788)
 SERVICE_POLL_SECONDS = 5
+
+
+def transport_hmac_secret(env_path: Path | None = None) -> str | None:
+    if env_path is None:
+        env_path = _env_file_path()
+    env = {**_load_dotenv(env_path), **os.environ}
+    secret = env.get("TRADEBOT_TRANSPORT_HMAC_SECRET", "").strip()
+    if secret and len(secret) < 32:
+        raise RuntimeError("TRADEBOT_TRANSPORT_HMAC_SECRET must be at least 32 characters")
+    return secret or None
 
 
 @dataclass(frozen=True)
