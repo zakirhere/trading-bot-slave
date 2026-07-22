@@ -1,0 +1,25 @@
+[Unit]
+Description=Tradebot Slave (__ACCOUNT_ID__)
+Wants=network-online.target tailscaled.service
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__PROJECT_ROOT__
+Environment=PYTHONUNBUFFERED=1
+Environment=TRADEBOT_ENV_FILE=__ENV_PATH__
+ExecStart=__PROJECT_ROOT__/.venv/bin/python -m slave_bot.daemon --serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__STATE_DIR__
+
+[Install]
+WantedBy=multi-user.target
