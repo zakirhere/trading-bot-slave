@@ -35,6 +35,7 @@ sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow OpenSSH
 sudo ufw allow in on tailscale0
+sudo ufw allow 41641/udp comment 'Tailscale transport'
 sudo ufw --force enable
 
 echo

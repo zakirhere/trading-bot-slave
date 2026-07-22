@@ -42,11 +42,14 @@ ufw default deny incoming
 ufw default allow outgoing
 ufw allow OpenSSH
 ufw allow in on tailscale0
+ufw allow 41641/udp comment 'Tailscale transport'
 ufw --force enable
 ```
 
 Do not open the Slave service port on the VPS's public interface. The
-interface-specific rule permits traffic arriving through Tailscale only.
+interface-specific rule permits Slave traffic arriving through Tailscale
+only. UDP port 41641 permits Tailscale's authenticated encrypted transport;
+it does not expose the Slave HTTP service.
 
 Before disabling SSH password authentication, install and test the client's
 SSH public key in a second terminal session. Then set `PasswordAuthentication

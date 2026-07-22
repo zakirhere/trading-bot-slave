@@ -42,6 +42,7 @@ def test_host_bootstrap_requires_ubuntu_tailscale_and_preserves_client_custody()
     assert "systemctl is-active --quiet tailscaled" in script
     assert "sudo ufw allow OpenSSH" in script
     assert "sudo ufw allow in on tailscale0" in script
+    assert "sudo ufw allow 41641/udp comment 'Tailscale transport'" in script
     assert "Public SSH remains enabled" in script
     assert "does not need the client's VPS password or SSH access" in script
     assert "adduser" not in script
