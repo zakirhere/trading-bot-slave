@@ -5,15 +5,43 @@ import logging
 import threading
 import time as time_module
 from datetime import datetime, time, timezone
+from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from . import broker, config, db, executor, state, transport_security
+from . import broker, config, db, equity_baseline, executor, state, transport_security
 
 log = logging.getLogger(__name__)
 _nonce_lock = threading.Lock()
 _seen_nonces: dict[str, int] = {}
+
+
+def reconciliation_snapshot(account_broker, *, after: str) -> dict[str, Any]:
+    now_et = datetime.now(equity_baseline.ET)
+    account = account_broker.get_account()
+    clock = account_broker.get_clock()
+    if not clock.get("is_open") and now_et.time() >= time(16, 0):
+        equity = Decimal(str(account.get("equity") or "0"))
+        if equity > 0:
+            equity_baseline.save(
+                equity,
+                as_of_date=now_et.date(),
+                source="post_close_reconciliation",
+            )
+    return {
+        "account_id": config.ACCOUNT_ID,
+        "mode": account_broker.cfg.mode,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "positions": account_broker.get_positions(),
+        "orders": account_broker.list_orders(
+            status="all",
+            after=after,
+            limit=500,
+            direction="desc",
+            nested=True,
+        ),
+    }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -54,13 +82,7 @@ class Handler(BaseHTTPRequestHandler):
             day = datetime.now(timezone.utc).date()
             after = datetime.combine(day, time.min, timezone.utc).isoformat().replace("+00:00", "Z")
             self._handle_broker_read(
-                lambda b: {
-                    "account_id": config.ACCOUNT_ID,
-                    "mode": b.cfg.mode,
-                    "generated_at": datetime.now(timezone.utc).isoformat(),
-                    "positions": b.get_positions(),
-                    "orders": b.list_orders(status="all", after=after, limit=500, direction="desc", nested=True),
-                }
+                lambda b: reconciliation_snapshot(b, after=after)
             )
             return
         if parsed.path == "/broker/orders":

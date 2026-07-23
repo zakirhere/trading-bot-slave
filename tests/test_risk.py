@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from slave_bot import risk, state
@@ -174,5 +175,14 @@ def test_daily_loss_at_two_percent_hard_halts():
 
 def test_daily_loss_above_limit_allows():
     rc = risk.check_daily_loss({"equity": "9810", "last_equity": "10000"})
+
+    assert rc.allowed
+
+
+def test_daily_loss_uses_explicit_persisted_equity_override():
+    rc = risk.check_daily_loss(
+        {"equity": "9900", "last_equity": "0"},
+        previous_equity_override=Decimal("10000"),
+    )
 
     assert rc.allowed

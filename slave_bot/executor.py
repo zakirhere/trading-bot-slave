@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from . import broker, config, db, risk, state
+from . import broker, config, db, equity_baseline, risk, state
 
 log = logging.getLogger(__name__)
 
@@ -205,7 +205,12 @@ def _execute_request(
             )
 
         if req.kind in {"stock_market_buy", "option_spread_open"}:
-            daily_loss = risk.check_daily_loss(acct)
+            previous_equity = equity_baseline.broker_previous_equity(
+                acct, is_live=cfg.is_live
+            )
+            daily_loss = risk.check_daily_loss(
+                acct, previous_equity_override=previous_equity
+            )
             if not daily_loss.allowed:
                 with state.transaction() as current:
                     current.halted = True

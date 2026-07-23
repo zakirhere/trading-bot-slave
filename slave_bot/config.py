@@ -89,6 +89,7 @@ STATE_DIR = _state_dir_for_account(Path.home(), ACCOUNT_ID)
 # account directory shared for operations, but never share mutable state files.
 STATE_FILE = STATE_DIR / "slave-state.json"
 DB_FILE = STATE_DIR / "slave.sqlite"
+EOD_EQUITY_FILE = STATE_DIR / "eod-equity.json"
 
 KILLSWITCH_HOST = "127.0.0.1"
 KILLSWITCH_PORT = 8765

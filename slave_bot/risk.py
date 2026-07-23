@@ -72,12 +72,18 @@ def check_pretrade(
     return RiskCheck(True)
 
 
-def check_daily_loss(account: dict) -> RiskCheck:
+def check_daily_loss(
+    account: dict,
+    *,
+    previous_equity_override: Decimal | None = None,
+) -> RiskCheck:
     try:
         equity = decimal_value(account.get("equity"))
         previous_equity = decimal_value(account.get("last_equity"))
     except Exception:
         return RiskCheck(False, "daily loss check could not parse account equity")
+    if previous_equity <= 0 and previous_equity_override is not None:
+        previous_equity = previous_equity_override
     if previous_equity <= 0:
         return RiskCheck(False, "daily loss check missing positive last_equity")
     pnl_pct = (equity - previous_equity) / previous_equity * Decimal("100")
