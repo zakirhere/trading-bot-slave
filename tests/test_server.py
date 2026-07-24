@@ -69,7 +69,12 @@ def test_broker_read_endpoints_return_account_facts(running_server, monkeypatch)
         cfg = SimpleNamespace(mode="paper")
 
         def get_account(self):
-            return {"status": "ACTIVE", "trading_blocked": False}
+            return {
+                "status": "ACTIVE",
+                "trading_blocked": False,
+                "equity": "9900",
+                "last_equity": "10000",
+            }
 
         def get_clock(self):
             return {"is_open": True}
@@ -90,7 +95,13 @@ def test_broker_read_endpoints_return_account_facts(running_server, monkeypatch)
     monkeypatch.setattr(server.broker, "create_trading_broker", lambda cfg: FakeBroker())
 
     expected = {
-        "/account": ("account", {"status": "ACTIVE", "trading_blocked": False}),
+        "/account": ("account", {
+            "status": "ACTIVE",
+            "trading_blocked": False,
+            "equity": "9900",
+            "last_equity": "10000",
+            "_tradebot_previous_equity": "10000",
+        }),
         "/clock": ("clock", {"is_open": True}),
         "/broker/positions": ("positions", [{"symbol": "SPY260731P00700000", "qty": "-1"}]),
         "/broker/orders?status=filled": ("orders", [{"id": "order-1", "status": "filled"}]),

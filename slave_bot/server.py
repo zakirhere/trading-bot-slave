@@ -70,7 +70,17 @@ class Handler(BaseHTTPRequestHandler):
             )
             return
         if parsed.path == "/account":
-            self._handle_broker_read(lambda b: {"mode": b.cfg.mode, "account": b.get_account()})
+            def account_snapshot(account_broker):
+                account = dict(account_broker.get_account())
+                previous = equity_baseline.broker_previous_equity(
+                    account,
+                    is_live=account_broker.cfg.mode == "live",
+                )
+                if previous is not None:
+                    account["_tradebot_previous_equity"] = str(previous)
+                return {"mode": account_broker.cfg.mode, "account": account}
+
+            self._handle_broker_read(account_snapshot)
             return
         if parsed.path == "/clock":
             self._handle_broker_read(lambda b: {"clock": b.get_clock()})

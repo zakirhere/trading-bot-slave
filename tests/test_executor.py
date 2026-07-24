@@ -128,7 +128,7 @@ def test_execute_option_spread_submits_credit_as_negative_limit(tmp_path, monkey
         conn.close()
 
 
-def test_execute_blocks_when_halted_state_for_close(tmp_path, monkeypatch):
+def test_execute_allows_risk_reducing_close_when_halted(tmp_path, monkeypatch):
     conn = _conn(tmp_path)
     fake_state = state.State(halted=True, halt_reason="manual test halt")
 
@@ -144,6 +144,19 @@ def test_execute_blocks_when_halted_state_for_close(tmp_path, monkeypatch):
 
         def get_positions(self):
             return []
+
+        def format_mleg_limit_price(self, **kwargs):
+            return 0.30
+
+        def submit_mleg_limit_order(self, **kwargs):
+            return executor.broker.OrderResult(
+                broker_order_id="close-1",
+                status="pending_new",
+                symbol="SPY",
+                side="buy",
+                qty=1,
+                raw={},
+            )
 
         def close(self):
             pass
@@ -167,8 +180,8 @@ def test_execute_blocks_when_halted_state_for_close(tmp_path, monkeypatch):
 
         updated = executor.execute_request(conn, req)
 
-        assert updated.status == db.STATUS_BLOCKED
-        assert "halted" in updated.reason
+        assert updated.status == db.STATUS_SUBMITTED
+        assert updated.broker_order_id == "close-1"
     finally:
         conn.close()
 

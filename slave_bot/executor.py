@@ -262,16 +262,7 @@ def _execute_request(
         open_risk = risk.estimate_open_risk_usd(positions) + reserved_risk
         open_position_count = risk.estimate_position_slots(positions) + reserved_slots
         closing_kind = req.kind in {"stock_market_sell", "option_spread_close"}
-        if closing_kind:
-            if current_state.halted:
-                reason = f"halted: {current_state.halt_reason or 'no reason'}"
-                return db.update_status(
-                    conn,
-                    req.id,
-                    status=db.STATUS_BLOCKED,
-                    reason=reason,
-                )
-        else:
+        if not closing_kind:
             rc = risk.check_pretrade(
                 s=current_state,
                 is_live=cfg.is_live,
